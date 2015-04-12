@@ -3,111 +3,80 @@ CON
   _clkmode = xtal1 + pll16x
   _xinfreq = 5_000_000
 
+  Serial_Enabled = TRUE
+
 OBJ
 
   Serial: "FullDuplexSerial"
-  checksum: "checksum"
 
 VAR
 
- word buf
- byte counter
+  long buf
 
- word start
+  byte data
+  byte checksum
 
- word a, b, c, d, e, f, g, h
+  byte found
+  byte oldDec
 
- word packet
+  word foundCount
+  long stack[20]
 
-PUB Main | in
+PUB Main | in, cog, i
 
-  Serial.start(31, 30, 0, 115200)
-  Serial.str(String("Starting receiving...", 13))  
   waitcnt(clkfreq*3+cnt)
-  Serial.tx(16)
-  DIRA[3]~
-    
   
+  if Serial_Enabled
+    Serial.start(31, 30, 0, 115200)
+    cog := cognew(output, @stack[0])
+    
+  DIRA[3]~
+  DIRA[10]~~
   
   repeat
-    in := INA[3]    
-    in <<= 15
-    buf >>= 1
+    in := INA[3]
+    buf <<= 1
     buf |= in
-    if checksum.checkChecksum(buf) and buf <> %1111111100000000' == %0101101101011011
-      if counter > 200
-        counter := 0
-      a := buf
-      a >>= 8
-      Serial.dec(a)
-      in := a
-      Serial.str(String(" Found! "))
-      counter++
-      Serial.dec(counter)
-      Serial.tx(13)
-      'Serial.str(String("Calculated Thingy: "))
-      'Serial.bin(checksum.generatePacket(counter<<8), 16)
-      'Serial.tx(13)
-      buf := %0000000000000000
-    waitcnt(clkfreq/500+cnt)
 
+    OUTA[10] := in
+    
+    if (buf & %11111111_11111111_00000000_00000000) == %01000001_01000010_00000000_00000000
+      data := (buf & %11111111_00000000) >> 8
+      checksum := (buf & %00000000_11111111)      
+      if (data ^ %11111111) == checksum
+        found := True       
+        foundCount++   
 
-  {
-  start := %1010101100000000
-  Serial.str(String("Start : "))
-  Serial.bin(start, 16)                                                   
-  Serial.str(String(13, "Chcksm: "))
-  Serial.bin(checksum.calculateChecksum(start), 16)
-  Serial.str(String(13, "Packet: "))
-  Serial.bin(checksum.generatePacket(start), 16)     
+    waitcnt(clkfreq/1000+cnt)
 
-  {Serial.str(String(13, "First: "))
-  a := ((start & %1111000000000000) >> 12)+1
-  Serial.bin(a, 16)
+PUB output | b1, b2, b3
 
-  Serial.str(String(13, "Second: "))
-  b := ((start & %0000111100000000) >> 8)+1
-  Serial.bin(b, 16)
+  repeat
+    Serial.tx(16)
+ 
+    Serial.Str(String("Buffer: "))
+    Serial.bin(buf, 32)
+    Serial.tx(13)
 
-  Serial.str(String(13, "Mod: "))
-  c := (a * b)//256  
-  Serial.bin(c, 16)  
+    Serial.str(String("Data: "))
+    Serial.bin(data, 8)
+    Serial.tx(13)
 
-  Serial.str(String(13, "Gen: "))
-  d := (start | c)   
-  Serial.bin(d, 16)}
+    Serial.str(String("Dec: "))
+    if found      
+      Serial.Dec(data)
+      oldDec := data      
+      found := FALSE
+    else
+      Serial.dec(oldDec)
+    Serial.tx(13)
 
-  packet := %1010101101001001'checksum.generatePacket(start)
-  
-  Serial.str(String(13, "Stp   : "))
-  e := packet
-  e >>= 8
-  e <<= 8  
-  Serial.bin(e, 16)
-
-  Serial.str(String(13, "Chk   : "))
-  f := checksum.generatePacket(e)
-  Serial.bin(f, 16)
-
-  Serial.str(String(13, "Match : "))
-  if f == packet
-    Serial.str(String("True", 13))
-  else
-    Serial.str(String("False", 13))
-
-  g := checksum.checkChecksum(packet)  
-  Serial.str(String("Match : "))
-  if f == packet
-    Serial.str(String("True", 13))
-  else
-    Serial.str(String("False", 13))  
-
-  'Serial.str(String(13, "Gen: "))
-  'f :=   
-  'Serial.bin(e, 16)
-
-PUB genCheck(input)
-  a := ((input & %1111000000000000) >> 12)+1
-  b := ((input & %0000111100000000) >> 8)+1
-  c := (a * b)//256
-  return c }    
+    Serial.str(String("Checksum: "))
+    Serial.bin(checksum, 8)
+    Serial.tx(13)    
+    
+    Serial.str(String("Found Count: "))
+    Serial.dec(foundCount)
+    Serial.tx(13)
+    waitcnt(clkfreq/50+cnt)
+    

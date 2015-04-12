@@ -1,33 +1,36 @@
-VAR
+PUB createChecksum(stringPointer) | p, c, checksum
+  {
+   Creates a checksum by xor'ing all the characters
+   together.
 
-  word a, b, c, d
+   p is the incrementing checksum pointer.
+   c is the character from RAM
+  }
 
-PUB calculateChecksum(input) | b1, b2, chk
-'input = 4 data bits, 4 other bits (not fussy)
+  p := stringPointer
 
-  a := ((input & %1111000000000000) >> 12)+1
-  b := ((input & %0000111100000000) >> 8)+1
-  c := (a * b)//256
-  return c
+  repeat
+    c := byte[p]
+    p++
+    if c > 0
+      checksum := checksum ^ c
+    else
+      return checksum
 
-PUB calculateChecksum_(input) | b1, b2, chk
-'input = 4 data bits, 4 other bits (not fussy)
+PUB checkChecksum(data, checksum) | d
+  {
+  Returns boolean whether the transmitted checksum
+  matches the data.
 
-  d := input
-  d <<= 8  
-  a := ((input & %1111000000000000) >> 12)+1
-  b := ((input & %0000111100000000) >> 8)+1
-  c := (a * b)//256
-  return c  
+  Creates a checksum using the checksumming algorithm
+  from the data parameter, and stores it in the "d"
+  variable. Then compares "d" with the provided checksum
+  parameter.
+  }
 
-PUB generatePacket(input)
-'input = 4 data bits, 4x 0s: %11010000
-
-  return input | calculateChecksum(input)        
-
-PUB checkChecksum(input) | i
-'input = Full binary packet (4bits + 4bit checksum)
-
-  i := input >> 8
-  i <<= 8
-  return generatePacket(i) == input
+  d := createChecksum(data)
+  if d == checksum
+    return True
+  else
+    return False
+  

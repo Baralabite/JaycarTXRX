@@ -13,24 +13,38 @@ VAR
   byte counter  
 
 PUB Main
-
-  DIRA[2]~~
-  OUTA[2]~~
-  waitcnt(clkfreq*2+cnt)
             
   repeat
-    counter := counter + 1
+    transmitString(2, string("UUUUUUUUUU"))
+    transmitByte(2, %01000001)  'A
+    transmitByte(2, %01000010)  'B
+    'transmitByte(2, %01000011)  'C
+    counter++
+    transmitByte(2, counter)
+    transmitByte(2, (counter ^ %11111111))
     if counter > 254
       counter := 0
-    repeat 6
-      transmitByte(2, checksum.generatePacket(counter<<8))
+    OUTA[2]~
+
+PUB transmitString(pin, stringPointer) | i, c
+
+  i := stringPointer
+
+  repeat
+    c := byte[i]
+    i++
+
+    if c > 0
+      transmitByte(pin, c)
+    else
+      quit
 
 PUB transmitByte(pin, sig)
 
   DIRA[pin]~~
   s := sig  
-  repeat 16
-    OUTA[pin] := s & %0000000000000001   
-    s >>= 1
-    waitcnt(clkfreq/500+cnt)
+  repeat 8
+    OUTA[pin] := (s & %10000000) >> 7   
+    s <<= 1
+    waitcnt(clkfreq/1000+cnt)
   
